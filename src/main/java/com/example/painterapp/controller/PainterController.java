@@ -1,9 +1,12 @@
 package com.example.painterapp.controller;
 
+import com.example.painterapp.dto.OtpRequest;
+import com.example.painterapp.dto.OtpVerifyRequest;
+import com.example.painterapp.dto.PainterRegisterRequest;
+import com.example.painterapp.dto.PainterUpdateRequest;
 import com.example.painterapp.entity.Painter;
 import com.example.painterapp.security.JwtUtil;
 import com.example.painterapp.service.PainterService;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -20,68 +23,67 @@ public class PainterController {
         this.service = service;
     }
 
-    // ================= REGISTER PAINTER =================
+    // ================= REGISTER =================
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody Painter painter) {
-        try {
-            Painter savedPainter = service.register(painter);
-            return ResponseEntity.ok(savedPainter);
-        } catch (RuntimeException e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<?> register(@RequestBody PainterRegisterRequest request) {
+        Painter painter = service.register(request);
+        return ResponseEntity.ok(painter);
     }
 
-    // ================= LOGIN WITHOUT OTP (OPTIONAL) =================
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestParam String mobile) {
-        try {
-            Painter painter = service.login(mobile);
-            return ResponseEntity.ok(painter);
-        } catch (RuntimeException e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", e.getMessage()));
-        }
+    // ================= LOGIN PASSWORD =================
+    @PostMapping("/login-password")
+    public ResponseEntity<?> loginPassword(@RequestBody Map<String, String> body) {
+
+        Painter painter = service.loginWithPassword(
+                body.get("mobile"),
+                body.get("password")
+        );
+
+        String token = JwtUtil.generateToken(painter.getPainterCode());
+
+        return ResponseEntity.ok(Map.of(
+                "token", token,
+                "painter", painter
+        ));
     }
 
     // ================= SEND OTP =================
     @PostMapping("/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestParam String mobile) {
-        try {
-            service.sendOtp(mobile);
-            return ResponseEntity.ok(
-                    Map.of("message", "OTP sent successfully")
-            );
-        } catch (RuntimeException e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", e.getMessage()));
-        }
+    public ResponseEntity<?> sendOtp(@RequestBody OtpRequest request) {
+        service.sendOtp(request.getMobile());
+        return ResponseEntity.ok(Map.of("message", "OTP sent successfully"));
     }
 
-    // ================= VERIFY OTP + JWT TOKEN =================
+    // ================= VERIFY OTP =================
     @PostMapping("/verify-otp")
-    public ResponseEntity<?> verifyOtp(
-            @RequestParam String mobile,
-            @RequestParam String otp) {
+    public ResponseEntity<?> verifyOtp(@RequestBody OtpVerifyRequest request) {
 
-        try {
-            Painter painter = service.verifyOtp(mobile, otp);
+        Painter painter = service.verifyOtp(
+                request.getMobile(),
+                request.getOtp()
+        );
 
-            String token = JwtUtil.generateToken(mobile);
+        String token = JwtUtil.generateToken(painter.getPainterCode());
 
-            return ResponseEntity.ok(
-                    Map.of(
-                            "token", token,
-                            "painter", painter
-                    )
-            );
-        } catch (RuntimeException e) {
-            return ResponseEntity
-                    .status(HttpStatus.BAD_REQUEST)
-                    .body(Map.of("error", e.getMessage()));
-        }
+        return ResponseEntity.ok(Map.of(
+                "token", token,
+                "painter", painter
+        ));
     }
+
+    // ================= PROFILE =================
+    @GetMapping("/profile")
+    public ResponseEntity<?> profile(@RequestParam String mobile) {
+        return ResponseEntity.ok(service.getProfile(mobile));
+    }
+
+    // ================= UPDATE PROFILE =================
+    @PutMapping("/update-profile")
+    public ResponseEntity<?> updateProfile(
+            @RequestParam String mobile,
+            @RequestBody PainterUpdateRequest input
+    ) {
+        return ResponseEntity.ok(service.updateProfile(mobile, input));
+    }
+
 }
